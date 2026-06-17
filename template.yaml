@@ -11,11 +11,6 @@ Parameters:
       - test
       - prod
     Description: Deployment environment for the lifecycle trigger.
-  ProfileConfigJson:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: Legacy non-secret JSON profile allowlist. Prefer ProfileConfigJsonBase64 for deployment safety.
   ProfileConfigJsonBase64:
     Type: String
     Default: eyJ2ZXJzaW9uIjoxLCJwcm9maWxlcyI6W119
@@ -82,8 +77,6 @@ Resources:
         Variables:
           ENVIRONMENT_NAME:
             Ref: EnvironmentName
-          PROFILE_CONFIG_JSON:
-            Ref: ProfileConfigJson
           PROFILE_CONFIG_JSON_BASE64:
             Ref: ProfileConfigJsonBase64
           LOG_LEVEL:

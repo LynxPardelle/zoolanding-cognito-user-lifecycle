@@ -33,6 +33,8 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn("ProfileConfigJsonBase64:", template)
         self.assertIn("PROFILE_CONFIG_JSON_BASE64:", template)
         self.assertIn("Ref: ProfileConfigJsonBase64", template)
+        self.assertNotIn("  ProfileConfigJson:\n", template)
+        self.assertNotIn("PROFILE_CONFIG_JSON:\n", template)
 
 
 if __name__ == "__main__":
