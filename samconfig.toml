@@ -4,7 +4,7 @@ version = 0.1
 stack_name = "zoolanding-cognito-user-lifecycle-dev"
 resolve_s3 = true
 region = "us-east-1"
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = false
 fail_on_empty_changeset = false
 
@@ -12,7 +12,7 @@ fail_on_empty_changeset = false
 stack_name = "zoolanding-cognito-user-lifecycle-test"
 resolve_s3 = true
 region = "us-east-1"
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = false
 fail_on_empty_changeset = false
 
@@ -20,7 +20,6 @@ fail_on_empty_changeset = false
 stack_name = "zoolanding-cognito-user-lifecycle-prod"
 resolve_s3 = true
 region = "us-east-1"
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = false
 fail_on_empty_changeset = false
-
