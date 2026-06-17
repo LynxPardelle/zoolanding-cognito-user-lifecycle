@@ -65,6 +65,8 @@ Resources:
     Properties:
       CodeUri: .
       Handler: lambda_function.lambda_handler
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-Function
       Description: Assigns server-approved tenant attributes and groups to Cognito users.
       Role:
         Fn::GetAtt:
