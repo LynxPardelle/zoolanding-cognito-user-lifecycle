@@ -16,7 +16,7 @@ AWS behavior to account for:
 
 ## Profile Config
 
-Deployment supplies `PROFILE_CONFIG_JSON` per environment. It is server-side, non-secret config.
+Deployment supplies the profile config per environment. It is server-side, non-secret config. Use `PROFILE_CONFIG_JSON_BASE64` for deployments so raw JSON cannot be split by shell argument parsing. `PROFILE_CONFIG_JSON` remains supported only as a local/backward-compatible fallback.
 
 ```json
 {
@@ -79,7 +79,7 @@ Required GitHub Environment variables:
 
 - `AWS_ROLE_ARN`
 - `AWS_REGION`, normally `us-east-1`
-- `PROFILE_CONFIG_JSON_BASE64`, base64-encoded compact JSON
+- `PROFILE_CONFIG_JSON_BASE64`, base64-encoded compact JSON. The workflow validates it, normalizes it, and passes only `ProfileConfigJsonBase64` to SAM.
 
 After deployment, attach the output `FunctionArn` to the Cognito user pool triggers:
 
