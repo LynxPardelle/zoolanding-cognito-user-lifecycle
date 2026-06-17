@@ -1,3 +1,5 @@
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -66,18 +68,18 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
 
 def _load_profiles() -> list[dict[str, Any]]:
-    raw_config = os.environ.get("PROFILE_CONFIG_JSON", "").strip()
+    raw_config = _profile_config_json()
     if not raw_config:
-        raise AuthLifecycleConfigError("PROFILE_CONFIG_JSON is required")
+        raise AuthLifecycleConfigError("PROFILE_CONFIG_JSON_BASE64 or PROFILE_CONFIG_JSON is required")
     try:
         config = json.loads(raw_config)
     except json.JSONDecodeError as exc:
-        raise AuthLifecycleConfigError("PROFILE_CONFIG_JSON must be valid JSON") from exc
+        raise AuthLifecycleConfigError("Profile config must be valid JSON") from exc
 
     _reject_secret_like_config(config)
     profiles = config.get("profiles") if isinstance(config, dict) else None
     if not isinstance(profiles, list):
-        raise AuthLifecycleConfigError("PROFILE_CONFIG_JSON.profiles must be a list")
+        raise AuthLifecycleConfigError("Profile config profiles must be a list")
 
     normalized_profiles: list[dict[str, Any]] = []
     for index, profile in enumerate(profiles):
@@ -85,6 +87,16 @@ def _load_profiles() -> list[dict[str, Any]]:
             raise AuthLifecycleConfigError(f"Profile {index} must be an object")
         normalized_profiles.append(_validate_profile(profile, index))
     return normalized_profiles
+
+
+def _profile_config_json() -> str:
+    raw_base64_config = os.environ.get("PROFILE_CONFIG_JSON_BASE64", "").strip()
+    if raw_base64_config:
+        try:
+            return base64.b64decode(raw_base64_config, validate=True).decode("utf-8").strip()
+        except (binascii.Error, UnicodeDecodeError) as exc:
+            raise AuthLifecycleConfigError("PROFILE_CONFIG_JSON_BASE64 must be valid base64-encoded UTF-8 JSON") from exc
+    return os.environ.get("PROFILE_CONFIG_JSON", "").strip()
 
 
 def _validate_profile(profile: dict[str, Any], index: int) -> dict[str, Any]:

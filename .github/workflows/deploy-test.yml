@@ -53,7 +53,8 @@ jobs:
               raise SystemExit("PROFILE_CONFIG_JSON_BASE64 is required for deploy")
           decoded = base64.b64decode(raw).decode("utf-8")
           parsed = json.loads(decoded)
-          pathlib.Path("profile-config.compact.json").write_text(json.dumps(parsed, separators=(",", ":")), encoding="utf-8")
+          compact = json.dumps(parsed, separators=(",", ":")).encode("utf-8")
+          pathlib.Path("profile-config.compact.b64").write_text(base64.b64encode(compact).decode("ascii"), encoding="utf-8")
           PY
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -67,5 +68,5 @@ jobs:
           python -m unittest discover -s tests -p "test_*.py"
           sam validate
           sam build --no-cached
-          PROFILE_CONFIG_JSON="$(cat profile-config.compact.json)"
-          sam deploy --config-env test --no-confirm-changeset --no-fail-on-empty-changeset --parameter-overrides "EnvironmentName=test" "ProfileConfigJson=${PROFILE_CONFIG_JSON}" "LogLevel=INFO"
+          PROFILE_CONFIG_JSON_BASE64="$(cat profile-config.compact.b64)"
+          sam deploy --config-env test --no-confirm-changeset --no-fail-on-empty-changeset --parameter-overrides "EnvironmentName=test" "ProfileConfigJsonBase64=${PROFILE_CONFIG_JSON_BASE64}" "LogLevel=INFO"

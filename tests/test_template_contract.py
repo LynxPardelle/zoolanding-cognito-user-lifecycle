@@ -27,6 +27,13 @@ class TemplateContractTests(unittest.TestCase):
         self.assertNotIn("cognito-idp:DeleteUserPool", template)
         self.assertNotIn("cognito-idp:CreateUserPool", template)
 
+    def test_sam_template_uses_base64_profile_config_parameter(self):
+        template = (ROOT / "template.yaml").read_text(encoding="utf-8")
+
+        self.assertIn("ProfileConfigJsonBase64:", template)
+        self.assertIn("PROFILE_CONFIG_JSON_BASE64:", template)
+        self.assertIn("Ref: ProfileConfigJsonBase64", template)
+
 
 if __name__ == "__main__":
     unittest.main()
