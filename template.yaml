@@ -55,6 +55,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - cognito-idp:AdminListGroupsForUser
                   - cognito-idp:AdminUpdateUserAttributes
                   - cognito-idp:AdminAddUserToGroup
                 Resource:

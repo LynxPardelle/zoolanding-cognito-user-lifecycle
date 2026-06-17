@@ -106,8 +106,31 @@ def _validate_profile(profile: dict[str, Any], index: int) -> dict[str, Any]:
     if any(group not in normalized["allowedGroups"] for group in normalized["defaultGroups"]):
         raise AuthLifecycleConfigError(f"Profile {index} defaultGroups must be allowedGroups")
 
+    normalized["attributes"] = _profile_attributes(normalized, index)
+    normalized["groupAssignmentMode"] = _clean_string(normalized.get("groupAssignmentMode") or "always")
+    if normalized["groupAssignmentMode"] not in {"always", "ifNoAllowedGroup"}:
+        raise AuthLifecycleConfigError(f"Profile {index} groupAssignmentMode is not supported")
+
     normalized["enabled"] = normalized.get("enabled", True) is True
     return normalized
+
+
+def _profile_attributes(profile: dict[str, Any], index: int) -> dict[str, str]:
+    attributes = _string_map(profile.get("attributes"), field_name="attributes")
+    tenant_claim = _clean_string(profile["tenantClaim"])
+    tenant_id = _clean_string(profile["tenantId"])
+
+    for name in attributes:
+        if not name.startswith("custom:"):
+            raise AuthLifecycleConfigError(f"Profile {index} attributes must be custom Cognito attributes")
+
+    if profile.get("setTenantClaim", True) is not False and tenant_claim:
+        existing_tenant = attributes.get(tenant_claim)
+        if existing_tenant and existing_tenant != tenant_id:
+            raise AuthLifecycleConfigError(f"Profile {index} tenant attribute conflicts with tenantId")
+        attributes = {tenant_claim: tenant_id, **{key: value for key, value in attributes.items() if key != tenant_claim}}
+
+    return attributes
 
 
 def _matching_profile(event: dict[str, Any], profiles: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -134,19 +157,19 @@ def _apply_profile(event: dict[str, Any], profile: dict[str, Any], trigger_sourc
         user_attributes = {}
 
     cognito = _cognito_client()
-    tenant_claim = profile["tenantClaim"]
-    tenant_id = _clean_string(profile["tenantId"])
-
-    if profile.get("setTenantClaim", True) is not False and user_attributes.get(tenant_claim) != tenant_id:
+    desired_attributes = [
+        {"Name": name, "Value": value}
+        for name, value in profile["attributes"].items()
+        if user_attributes.get(name) != value
+    ]
+    if desired_attributes:
         cognito.admin_update_user_attributes(
             UserPoolId=user_pool_id,
             Username=username,
-            UserAttributes=[
-                {"Name": tenant_claim, "Value": tenant_id},
-            ],
+            UserAttributes=desired_attributes,
         )
 
-    for group_name in profile["defaultGroups"]:
+    for group_name in _groups_to_add(cognito, user_pool_id, username, profile):
         cognito.admin_add_user_to_group(
             UserPoolId=user_pool_id,
             Username=username,
@@ -161,8 +184,27 @@ def _apply_profile(event: dict[str, Any], profile: dict[str, Any], trigger_sourc
         authProfileId=_clean_string(profile.get("authProfileId")),
         userHash=_user_hash(username),
         groupCount=len(profile["defaultGroups"]),
-        tenantClaim=tenant_claim,
+        attributeCount=len(profile["attributes"]),
     )
+
+
+def _groups_to_add(cognito: Any, user_pool_id: str, username: str, profile: dict[str, Any]) -> list[str]:
+    default_groups = profile["defaultGroups"]
+    if not default_groups:
+        return []
+
+    if profile["groupAssignmentMode"] == "always":
+        return default_groups
+
+    response = cognito.admin_list_groups_for_user(UserPoolId=user_pool_id, Username=username)
+    existing_groups = {
+        _clean_string(group.get("GroupName"))
+        for group in response.get("Groups", [])
+        if isinstance(group, dict)
+    }
+    if existing_groups & set(profile["allowedGroups"]):
+        return []
+    return default_groups
 
 
 def _cognito_client() -> Any:
@@ -198,6 +240,21 @@ def _string_list(value: Any) -> list[str]:
         if not item_string:
             raise AuthLifecycleConfigError("Lists must contain non-empty strings")
         strings.append(item_string)
+    return strings
+
+
+def _string_map(value: Any, *, field_name: str) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise AuthLifecycleConfigError(f"{field_name} must be an object")
+    strings: dict[str, str] = {}
+    for raw_key, raw_value in value.items():
+        key = _clean_string(raw_key)
+        string_value = _clean_string(raw_value)
+        if not key or not string_value:
+            raise AuthLifecycleConfigError(f"{field_name} must contain non-empty string keys and values")
+        strings[key] = string_value
     return strings
 
 
