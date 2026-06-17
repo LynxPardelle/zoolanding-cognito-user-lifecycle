@@ -15,11 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: Set up SAM
-        uses: aws-actions/setup-sam@v2
+        uses: aws-actions/setup-sam@v3
       - name: Validate profile config
         shell: bash
         env:

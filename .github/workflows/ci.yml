@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: Install audit tooling
@@ -73,6 +73,6 @@ jobs:
       - name: Run dependency audit
         run: pip-audit -r requirements.txt
       - name: Set up SAM
-        uses: aws-actions/setup-sam@v2
+        uses: aws-actions/setup-sam@v3
       - name: Validate SAM template
         run: sam validate
