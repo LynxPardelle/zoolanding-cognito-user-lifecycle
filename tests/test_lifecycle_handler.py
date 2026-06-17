@@ -49,8 +49,9 @@ def config(**profile_overrides):
 
 
 class FakeCognitoClient:
-    def __init__(self):
+    def __init__(self, groups_by_username=None):
         self.calls = []
+        self.groups_by_username = groups_by_username or {}
 
     def admin_update_user_attributes(self, **kwargs):
         self.calls.append(("admin_update_user_attributes", kwargs))
@@ -60,10 +61,15 @@ class FakeCognitoClient:
         self.calls.append(("admin_add_user_to_group", kwargs))
         return {}
 
+    def admin_list_groups_for_user(self, **kwargs):
+        self.calls.append(("admin_list_groups_for_user", kwargs))
+        groups = self.groups_by_username.get(kwargs["Username"], [])
+        return {"Groups": [{"GroupName": group_name} for group_name in groups]}
+
 
 class LifecycleHandlerTests(unittest.TestCase):
-    def run_handler(self, event, profile_config):
-        fake = FakeCognitoClient()
+    def run_handler(self, event, profile_config, *, groups_by_username=None):
+        fake = FakeCognitoClient(groups_by_username=groups_by_username)
         with patch.dict(os.environ, {
             "PROFILE_CONFIG_JSON": profile_config,
             "LOG_LEVEL": "ERROR",
@@ -93,6 +99,61 @@ class LifecycleHandlerTests(unittest.TestCase):
             "Username": "user@example.test",
             "GroupName": "Editors",
         })
+
+    def test_profile_can_assign_generic_server_side_attributes(self):
+        event = base_event()
+        event["request"]["clientMetadata"] = {
+            "attributes": {
+                "custom:plan_id": "evil",
+            },
+        }
+
+        result, fake = self.run_handler(event, config(
+            attributes={
+                "custom:tenant_id": "tenant-a",
+                "custom:plan_id": "growth",
+                "custom:dashboard_scope": "site-analytics",
+            },
+        ))
+
+        self.assertIs(result, event)
+        self.assertEqual(fake.calls[0][0], "admin_update_user_attributes")
+        self.assertEqual(fake.calls[0][1]["UserAttributes"], [
+            {"Name": "custom:tenant_id", "Value": "tenant-a"},
+            {"Name": "custom:plan_id", "Value": "growth"},
+            {"Name": "custom:dashboard_scope", "Value": "site-analytics"},
+        ])
+        self.assertNotIn("evil", json.dumps(fake.calls, sort_keys=True))
+
+    def test_if_no_allowed_group_mode_preserves_existing_authorized_group(self):
+        event = base_event("PostAuthentication_Authentication")
+
+        result, fake = self.run_handler(
+            event,
+            config(repairOnPostAuthentication=True, groupAssignmentMode="ifNoAllowedGroup"),
+            groups_by_username={"user@example.test": ["Admins"]},
+        )
+
+        self.assertIs(result, event)
+        self.assertEqual([call[0] for call in fake.calls], [
+            "admin_update_user_attributes",
+            "admin_list_groups_for_user",
+        ])
+
+    def test_if_no_allowed_group_mode_adds_default_group_when_user_has_no_allowed_group(self):
+        event = base_event("PostAuthentication_Authentication")
+
+        _, fake = self.run_handler(
+            event,
+            config(repairOnPostAuthentication=True, groupAssignmentMode="ifNoAllowedGroup"),
+            groups_by_username={"user@example.test": ["Unrelated"]},
+        )
+
+        self.assertEqual([call[0] for call in fake.calls], [
+            "admin_update_user_attributes",
+            "admin_list_groups_for_user",
+            "admin_add_user_to_group",
+        ])
 
     def test_client_metadata_cannot_select_tenant_or_groups(self):
         event = base_event()
@@ -137,6 +198,10 @@ class LifecycleHandlerTests(unittest.TestCase):
 
         with self.assertRaises(lifecycle.AuthLifecycleConfigError):
             self.run_handler(base_event(), json.dumps(profile_config))
+
+    def test_secret_like_generic_attribute_value_is_rejected(self):
+        with self.assertRaises(lifecycle.AuthLifecycleConfigError):
+            self.run_handler(base_event(), config(attributes={"custom:blocked_marker": "gho_short"}))
 
     def test_post_authentication_can_repair_existing_users_when_enabled(self):
         event = base_event("PostAuthentication_Authentication")
