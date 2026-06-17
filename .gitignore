@@ -1,0 +1,12 @@
+.aws-sam/
+.env
+.env.*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+logs/
+*.log
+profile-config.local.json
+

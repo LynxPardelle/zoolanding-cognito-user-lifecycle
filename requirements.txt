@@ -1,0 +1,2 @@
+# Runtime uses boto3 from the AWS Lambda Python runtime.
+

@@ -1,0 +1,27 @@
+from pathlib import Path
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class TemplateContractTests(unittest.TestCase):
+    def test_sam_template_has_no_public_api_events(self):
+        template = (ROOT / "template.yaml").read_text(encoding="utf-8")
+
+        self.assertNotIn("AWS::Serverless::Api", template)
+        self.assertNotIn("Type: Api", template)
+        self.assertNotIn("Events:", template)
+
+    def test_sam_template_grants_only_expected_cognito_mutations(self):
+        template = (ROOT / "template.yaml").read_text(encoding="utf-8")
+
+        self.assertIn("cognito-idp:AdminUpdateUserAttributes", template)
+        self.assertIn("cognito-idp:AdminAddUserToGroup", template)
+        self.assertNotIn("cognito-idp:AdminCreateUser", template)
+        self.assertNotIn("cognito-idp:DeleteUserPool", template)
+        self.assertNotIn("cognito-idp:CreateUserPool", template)
+
+
+if __name__ == "__main__":
+    unittest.main()

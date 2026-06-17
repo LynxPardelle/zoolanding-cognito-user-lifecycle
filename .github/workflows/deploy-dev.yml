@@ -1,0 +1,51 @@
+name: Deploy Dev
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Set up SAM
+        uses: aws-actions/setup-sam@v2
+      - name: Validate profile config
+        shell: bash
+        env:
+          PROFILE_CONFIG_JSON_BASE64: ${{ vars.PROFILE_CONFIG_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64, json, os, pathlib
+          raw = os.environ.get("PROFILE_CONFIG_JSON_BASE64", "")
+          if not raw:
+              raise SystemExit("PROFILE_CONFIG_JSON_BASE64 is required for deploy")
+          decoded = base64.b64decode(raw).decode("utf-8")
+          parsed = json.loads(decoded)
+          pathlib.Path("profile-config.compact.json").write_text(json.dumps(parsed, separators=(",", ":")), encoding="utf-8")
+          PY
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      - name: Test and deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p "test_*.py"
+          sam validate
+          sam build --no-cached
+          PROFILE_CONFIG_JSON="$(cat profile-config.compact.json)"
+          sam deploy --config-env dev --no-confirm-changeset --no-fail-on-empty-changeset --parameter-overrides "EnvironmentName=dev" "ProfileConfigJson=${PROFILE_CONFIG_JSON}" "LogLevel=INFO"

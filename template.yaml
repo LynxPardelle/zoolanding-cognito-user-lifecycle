@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Zoolanding Cognito user lifecycle trigger Lambda
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+    Description: Deployment environment for the lifecycle trigger.
+  ProfileConfigJson:
+    Type: String
+    Default: '{"version":1,"profiles":[]}'
+    NoEcho: true
+    Description: Non-secret JSON profile allowlist. Store values in GitHub Environment variables or secure deployment tooling.
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+    Description: Lambda log level.
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Timeout: 10
+    MemorySize: 128
+    Tracing: PassThrough
+
+Resources:
+  CognitoUserLifecycleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: lambda_function.lambda_handler
+      Description: Assigns server-approved tenant attributes and groups to Cognito users.
+      Environment:
+        Variables:
+          ENVIRONMENT_NAME:
+            Ref: EnvironmentName
+          PROFILE_CONFIG_JSON:
+            Ref: ProfileConfigJson
+          LOG_LEVEL:
+            Ref: LogLevel
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminAddUserToGroup
+              Resource:
+                Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
+  CognitoTriggerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: CognitoUserLifecycleFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceAccount:
+        Ref: AWS::AccountId
+      SourceArn:
+        Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
+Outputs:
+  FunctionName:
+    Description: Cognito lifecycle Lambda function name.
+    Value:
+      Ref: CognitoUserLifecycleFunction
+  FunctionArn:
+    Description: Cognito lifecycle Lambda function ARN for user-pool trigger attachment.
+    Value:
+      Fn::GetAtt:
+        - CognitoUserLifecycleFunction
+        - Arn
+
