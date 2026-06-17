@@ -34,12 +34,44 @@ Globals:
     Tracing: PassThrough
 
 Resources:
+  CognitoUserLifecycleFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${AWS::StackName}-FunctionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CognitoUserLifecyclePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminUpdateUserAttributes
+                  - cognito-idp:AdminAddUserToGroup
+                Resource:
+                  Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
   CognitoUserLifecycleFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
       Handler: lambda_function.lambda_handler
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-Function
       Description: Assigns server-approved tenant attributes and groups to Cognito users.
+      Role:
+        Fn::GetAtt:
+          - CognitoUserLifecycleFunctionRole
+          - Arn
       Environment:
         Variables:
           ENVIRONMENT_NAME:
@@ -48,15 +80,6 @@ Resources:
             Ref: ProfileConfigJson
           LOG_LEVEL:
             Ref: LogLevel
-      Policies:
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - cognito-idp:AdminUpdateUserAttributes
-                - cognito-idp:AdminAddUserToGroup
-              Resource:
-                Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
 
   CognitoTriggerInvokePermission:
     Type: AWS::Lambda::Permission
@@ -81,4 +104,3 @@ Outputs:
       Fn::GetAtt:
         - CognitoUserLifecycleFunction
         - Arn
-

@@ -16,6 +16,10 @@ class TemplateContractTests(unittest.TestCase):
     def test_sam_template_grants_only_expected_cognito_mutations(self):
         template = (ROOT / "template.yaml").read_text(encoding="utf-8")
 
+        self.assertIn("RoleName:", template)
+        self.assertIn("${AWS::StackName}-FunctionRole", template)
+        self.assertIn("FunctionName:", template)
+        self.assertIn("${AWS::StackName}-Function", template)
         self.assertIn("cognito-idp:AdminUpdateUserAttributes", template)
         self.assertIn("cognito-idp:AdminAddUserToGroup", template)
         self.assertNotIn("cognito-idp:AdminCreateUser", template)
