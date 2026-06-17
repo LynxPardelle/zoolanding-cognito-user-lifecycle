@@ -16,7 +16,7 @@ AWS behavior to account for:
 
 ## Profile Config
 
-Deployment supplies the profile config per environment. It is server-side, non-secret config. Use `PROFILE_CONFIG_JSON_BASE64` for deployments so raw JSON cannot be split by shell argument parsing. `PROFILE_CONFIG_JSON` remains supported only as a local/backward-compatible fallback.
+Deployment supplies the profile config per environment. It is server-side, non-secret config. Use `PROFILE_CONFIG_JSON_BASE64` for deployments so raw JSON cannot be split by shell argument parsing. `PROFILE_CONFIG_JSON` remains supported only as a local/manual fallback in the handler, but it is not exposed by the SAM template.
 
 ```json
 {
