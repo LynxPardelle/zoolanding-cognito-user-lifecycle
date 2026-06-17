@@ -13,9 +13,14 @@ Parameters:
     Description: Deployment environment for the lifecycle trigger.
   ProfileConfigJson:
     Type: String
-    Default: '{"version":1,"profiles":[]}'
+    Default: ''
     NoEcho: true
-    Description: Non-secret JSON profile allowlist. Store values in GitHub Environment variables or secure deployment tooling.
+    Description: Legacy non-secret JSON profile allowlist. Prefer ProfileConfigJsonBase64 for deployment safety.
+  ProfileConfigJsonBase64:
+    Type: String
+    Default: eyJ2ZXJzaW9uIjoxLCJwcm9maWxlcyI6W119
+    NoEcho: true
+    Description: Base64-encoded non-secret JSON profile allowlist. Avoids shell parsing issues with raw JSON parameter values.
   LogLevel:
     Type: String
     Default: INFO
@@ -79,6 +84,8 @@ Resources:
             Ref: EnvironmentName
           PROFILE_CONFIG_JSON:
             Ref: ProfileConfigJson
+          PROFILE_CONFIG_JSON_BASE64:
+            Ref: ProfileConfigJsonBase64
           LOG_LEVEL:
             Ref: LogLevel
 

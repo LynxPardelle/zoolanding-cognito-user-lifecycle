@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import unittest
@@ -77,6 +78,12 @@ class LifecycleHandlerTests(unittest.TestCase):
             result = lifecycle.lambda_handler(event, object())
         return result, fake
 
+    def run_handler_with_env(self, event, env, *, groups_by_username=None):
+        fake = FakeCognitoClient(groups_by_username=groups_by_username)
+        with patch.dict(os.environ, {**env, "LOG_LEVEL": "ERROR"}, clear=True), patch.object(lifecycle, "_cognito_client", return_value=fake):
+            result = lifecycle.lambda_handler(event, object())
+        return result, fake
+
     def test_post_confirmation_assigns_tenant_and_default_groups_from_server_config(self):
         event = base_event()
 
@@ -99,6 +106,26 @@ class LifecycleHandlerTests(unittest.TestCase):
             "Username": "user@example.test",
             "GroupName": "Editors",
         })
+
+    def test_profile_config_can_load_from_base64_env_to_avoid_deploy_shell_quoting(self):
+        event = base_event()
+        encoded_config = base64.b64encode(config().encode("utf-8")).decode("ascii")
+
+        result, fake = self.run_handler_with_env(event, {
+            "PROFILE_CONFIG_JSON_BASE64": encoded_config,
+        })
+
+        self.assertIs(result, event)
+        self.assertEqual([call[0] for call in fake.calls], [
+            "admin_update_user_attributes",
+            "admin_add_user_to_group",
+        ])
+
+    def test_invalid_profile_config_base64_fails_closed(self):
+        with self.assertRaises(lifecycle.AuthLifecycleConfigError):
+            self.run_handler_with_env(base_event(), {
+                "PROFILE_CONFIG_JSON_BASE64": "{",
+            })
 
     def test_profile_can_assign_generic_server_side_attributes(self):
         event = base_event()
