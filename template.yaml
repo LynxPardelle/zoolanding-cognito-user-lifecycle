@@ -5,9 +5,8 @@ Description: Zoolanding Cognito user lifecycle trigger Lambda
 Parameters:
   EnvironmentName:
     Type: String
-    Default: dev
+    Default: test
     AllowedValues:
-      - dev
       - test
       - prod
     Description: Deployment environment for the lifecycle trigger.
